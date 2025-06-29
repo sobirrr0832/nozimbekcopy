@@ -1,0 +1,1170 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Responsive Dashboard</title>
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background-color: #f8fafc;
+            overflow-x: hidden;
+        }
+
+        /* Header */
+        .header {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 70px;
+            background: white;
+            border-bottom: 1px solid #e2e8f0;
+            z-index: 100;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 24px;
+            box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
+            transition: opacity 0.3s ease-in-out, height 0.3s ease-in-out;
+        }
+
+        @media (min-width: 768px) {
+            .header {
+                left: 280px;
+                padding: 0 32px;
+            }
+        }
+
+        .header.hidden {
+            opacity: 0;
+            height: 0;
+            overflow: hidden;
+        }
+
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .page-breadcrumb {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: #64748b;
+            font-size: 14px;
+        }
+
+        .breadcrumb-separator {
+            color: #cbd5e1;
+        }
+
+        .current-page {
+            color: #0f172a;
+            font-weight: 600;
+        }
+
+        .header-right {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .search-bar {
+            position: relative;
+            display: none;
+        }
+
+        @media (min-width: 1024px) {
+            .search-bar {
+                display: block;
+            }
+        }
+
+        .search-input {
+            width: 250px;
+            padding: 8px 12px 8px 40px;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            font-size: 14px;
+            background: #f8fafc;
+            transition: all 0.2s;
+        }
+
+        .search-input:focus {
+            outline: none;
+            border-color: #7c3aed;
+            background: white;
+            box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.1);
+        }
+
+        .search-icon {
+            position: absolute;
+            left: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 16px;
+            height: 16px;
+            color: #64748b;
+        }
+
+        .notifications {
+            position: relative;
+            cursor: pointer;
+            padding: 8px;
+            border-radius: 8px;
+            transition: background-color 0.2s;
+        }
+
+        .notifications:hover {
+            background: #f1f5f9;
+        }
+
+        .notification-badge {
+            position: absolute;
+            top: 4px;
+            right: 4px;
+            width: 8px;
+            height: 8px;
+            background: #ef4444;
+            border-radius: 50%;
+            border: 2px solid white;
+        }
+
+        .user-profile {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 8px 12px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+
+        .user-profile:hover {
+            background: #f1f5f9;
+        }
+
+        .user-avatar {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            background: linear-gradient(to bottom right, #a855f7, #7c3aed);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: 600;
+            font-size: 14px;
+        }
+
+        .user-info {
+            display: none;
+        }
+
+        @media (min-width: 640px) {
+            .user-info {
+                display: block;
+            }
+        }
+
+        .user-name {
+            font-size: 14px;
+            font-weight: 600;
+            color: #0f172a;
+        }
+
+        .user-role {
+            font-size: 12px;
+            color: #64748b;
+        }
+
+        .dropdown-icon {
+            width: 16px;
+            height: 16px;
+            color: #64748b;
+            transition: transform 0.2s;
+        }
+
+        /* Mobile Menu Button */
+        .mobile-menu-btn {
+            position: fixed;
+            top: 16px;
+            left: 16px;
+            z-index: 110;
+            padding: 8px;
+            background: #7c3aed;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            display: none;
+        }
+
+        .mobile-menu-btn:hover {
+            background: #6d28d9;
+        }
+
+        @media (max-width: 767px) {
+            .mobile-menu-btn {
+                display: block;
+            }
+        }
+
+        /* Overlay */
+        .overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 90;
+            display: none;
+            opacity: 0;
+            transition: opacity 0.3s ease-in-out;
+        }
+
+        .overlay.active {
+            display: block;
+            opacity: 1;
+        }
+
+        /* Sidebar */
+        .sidebar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            height: 100vh;
+            width: 280px;
+            background: #0f172a;
+            color: white;
+            z-index: 95;
+            transform: translateX(-100%);
+            transition: transform 0.3s ease-in-out;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .sidebar.active {
+            transform: translateX(0);
+        }
+
+        @media (min-width: 768px) {
+            .sidebar {
+                transform: translateX(0);
+                position: fixed;
+                box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            }
+        }
+
+        .sidebar-header {
+            display: flex;
+            align-items: center;
+            padding: 24px;
+            border-bottom: 1px solid #334155;
+            flex-shrink: 0;
+        }
+
+        .logo {
+            width: 48px;
+            height: 48px;
+            background: linear-gradient(to bottom right, #a855f7, #7c3aed);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+            font-weight: bold;
+        }
+
+        .logo-text {
+            margin-left: 12px;
+            font-size: 20px;
+            font-weight: 600;
+        }
+
+        .nav-container {
+            flex: 1;
+            padding: 16px;
+        }
+
+        .nav-section {
+            margin-bottom: 24px;
+        }
+
+        .section-title {
+            font-size: 12px;
+            font-weight: 600;
+            color: #94a3b8;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 16px;
+            padding-left: 12px;
+        }
+
+        .nav-list {
+            list-style: none;
+        }
+
+        .nav-item {
+            margin-bottom: 4px;
+        }
+
+        .nav-link {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px;
+            color: #e2e8f0;
+            text-decoration: none;
+            border-radius: 8px;
+            transition: all 0.2s;
+            font-weight: 500;
+            font-size: 14px;
+        }
+
+        .nav-link:hover {
+            background: #1e293b;
+            color: white;
+        }
+
+        .nav-link.active {
+            background: #7c3aed;
+            color: white;
+        }
+
+        .nav-icon {
+            width: 20px;
+            height: 20px;
+            color: #e2e8f0;
+            stroke: currentColor;
+            fill: none;
+            stroke-width: 2;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+        }
+
+        .nav-link:hover .nav-icon {
+            color: #a855f7;
+        }
+
+        .nav-link.active .nav-icon {
+            color: white;
+        }
+
+        .logout-section {
+            padding: 16px;
+            border-top: 1px solid #334155;
+            flex-shrink: 0;
+        }
+
+        .logout-btn {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px;
+            color: #e2e8f0;
+            background: none;
+            border: none;
+            border-radius: 8px;
+            transition: all 0.2s;
+            font-weight: 500;
+            width: 100%;
+            cursor: pointer;
+            font-size: 14px;
+        }
+
+        .logout-btn:hover {
+            background: #dc2626;
+            color: white;
+        }
+
+        .logout-btn:hover .nav-icon {
+            color: white;
+        }
+
+        /* Main Content */
+        .main-content {
+            min-height: 100vh;
+            background: #f8fafc;
+            padding: 90px 24px 32px;
+            transition: margin-left 0.3s ease-in-out;
+        }
+
+        @media (min-width: 768px) {
+            .main-content {
+                margin-left: 280px;
+                padding: 90px 32px 32px;
+            }
+        }
+
+        .content-container {
+            max-width: 1280px;
+            margin: 0 auto;
+        }
+
+        .page-title {
+            font-size: 28px;
+            font-weight: 700;
+            color: #1e293b;
+            margin-bottom: 8px;
+        }
+
+        .page-subtitle {
+            color: #64748b;
+            margin-bottom: 32px;
+            font-size: 16px;
+        }
+
+        /* Cards Grid */
+        .cards-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 24px;
+        }
+
+        @media (min-width: 640px) {
+            .cards-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+
+        @media (min-width: 1024px) {
+            .cards-grid {
+                grid-template-columns: repeat(3, 1fr);
+            }
+        }
+
+        .card {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
+            padding: 24px;
+            transition: transform 0.2s, box-shadow 0.2s;
+            border: 1px solid #f1f5f9;
+        }
+
+        .card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px 0 rgba(0, 0, 0, 0.15);
+        }
+
+        .card-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 16px;
+        }
+
+        .card-icon {
+            width: 40px;
+            height: 40px;
+            border-radius: 8px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+        }
+
+        .card-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: #1f2937;
+        }
+
+        .card-text {
+            color: #6b7280;
+            line-height: 1.6;
+            font-size: 14px;
+        }
+
+        /* Icons */
+        .icon {
+            width: 24px;
+            height: 24px;
+            stroke: currentColor;
+            fill: none;
+            stroke-width: 2;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+        }
+
+        .icon-sm {
+            width: 16px;
+            height: 16px;
+        }
+
+        /* Loading and Error States */
+        .loading {
+            color: #64748b;
+            font-size: 14px;
+            padding: 12px;
+        }
+
+        .error {
+            color: #dc2626;
+            font-size: 14px;
+            padding: 12px;
+        }
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <header class="header" id="header">
+        <div class="header-left">
+            <div class="page-breadcrumb">
+                <span>Kabinet</span>
+                <span class="breadcrumb-separator">/</span>
+                <span class="current-page" id="current-page">Dashboard</span>
+            </div>
+        </div>
+        <div class="header-right">
+            <div class="search-bar">
+                <svg class="search-icon icon-sm" viewBox="0 0 24 24">
+                    <circle cx="11" cy="11" r="8"></circle>
+                    <path d="m21 21-4.35-4.35"></path>
+                </svg>
+                <input type="text" class="search-input" placeholder="Qidirish...">
+            </div>
+            <div class="notifications">
+                <svg class="icon" viewBox="0 0 24 24">
+                    <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"></path>
+                    <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"></path>
+                </svg>
+                <div class="notification-badge"></div>
+            </div>
+            <div class="user-profile" onclick="toggleUserMenu()">
+                <div class="user-avatar" id="user-avatar">NZ</div>
+                <div class="user-info">
+                    <div class="user-name" id="user-name">Nozim Zokirov</div>
+                    <div class="user-role">Talaba</div>
+                </div>
+                <svg class="dropdown-icon" viewBox="0 0 24 24">
+                    <polyline points="6,9 12,15 18,9"></polyline>
+                </svg>
+            </div>
+        </div>
+    </header>
+
+    <!-- Mobile Menu Button -->
+    <button class="mobile-menu-btn" onclick="toggleSidebar()">
+        <svg class="icon" id="menu-icon" viewBox="0 0 24 24">
+            <line x1="3" y1="6" x2="21" y2="6"></line>
+            <line x1="3" y1="12" x2="21" y2="12"></line>
+            <line x1="3" y1="18" x2="21" y2="18"></line>
+        </svg>
+        <svg class="icon" id="close-icon" viewBox="0 0 24 24" style="display: none;">
+            <line x1="18" y1="6" x2="6" y2="18"></line>
+            <line x1="6" y1="6" x2="18" y2="18"></line>
+        </svg>
+    </button>
+
+    <!-- Overlay -->
+    <div class="overlay" onclick="closeSidebar()"></div>
+
+    <!-- Sidebar -->
+    <div class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <div class="logo">NZ</div>
+            <h1 class="logo-text">Kabinet</h1>
+        </div>
+        <div class="nav-container">
+            <div class="nav-section">
+                <h3 class="section-title">Asosiy menyu</h3>
+                <ul class="nav-list">
+                    <li class="nav-item">
+                        <a href="#dashboard" class="nav-link active" onclick="loadSection('dashboard', this)">
+                            <svg class="nav-icon" viewBox="0 0 24 24">
+                                <path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+                                <polyline points="9,22 9,12 15,12 15,22"></polyline>
+                            </svg>
+                            Kabinet
+                        </a>
+                    </li>
+                    <li class="nav-item" id="subjects-nav">
+                        <a href="#subjects" class="nav-link" onclick="loadSection('subjects', this)">
+                            <svg class="nav-icon" viewBox="0 0 24 24">
+                                <polygon points="12,2 2,7 12,12 22,7 12,2"></polygon>
+                                <polyline points="2,17 12,22 22,17"></polyline>
+                                <polyline points="2,12 12,17 22,12"></polyline>
+                            </svg>
+                            Fanlar
+                        </a>
+                        <ul class="nav-list" id="subjects-list" style="padding-left: 24px;">
+                            <li class="loading">Yuklanmoqda...</li>
+                        </ul>
+                    </li>
+                    <li class="nav-item">
+                        <a href="#tests" class="nav-link" onclick="loadSection('tests', this)">
+                            <svg class="nav-icon" viewBox="0 0 24 24">
+                                <path d="M9 11H5a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h4a2 2 0 0 0 2-2v-7a2 2 0 0 0-2-2zM21 11h-4a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h4a2 2 0 0 0 2-2v-7a2 2 0 0 0-2-2z"></path>
+                                <path d="m7 21-4-4h5.5L12 21"></path>
+                                <path d="m17 21 4-4h-5.5L12 21"></path>
+                            </svg>
+                            Testlar
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="#payment" class="nav-link" onclick="loadSection('payment', this)">
+                            <svg class="nav-icon" viewBox="0 0 24 24">
+                                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                                <polyline points="14,2 14,8 20,8"></polyline>
+                                <line x1="16" y1="13" x2="8" y2="13"></line>
+                                <line x1="16" y1="17" x2="8" y2="17"></line>
+                                <polyline points="10,9 9,9 8,9"></polyline>
+                            </svg>
+                            Hisobni to'ldirish
+                        </a>
+                    </li>
+                </ul>
+            </div>
+            <div class="nav-section">
+                <h3 class="section-title">Statistika</h3>
+                <ul class="nav-list">
+                    <li class="nav-item">
+                        <a href="#results" class="nav-link" onclick="loadSection('results', this)">
+                            <svg class="nav-icon" viewBox="0 0 24 24">
+                                <line x1="18" y1="20" x2="18" y2="10"></line>
+                                <line x1="12" y1="20" x2="12" y2="4"></line>
+                                <line x1="6" y1="20" x2="6" y2="14"></line>
+                            </svg>
+                            Natijalarim
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="#rankings" class="nav-link" onclick="loadSection('rankings', this)">
+                            <svg class="nav-icon" viewBox="0 0 24 24">
+                                <path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"></path>
+                                <path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"></path>
+                                <path d="M4 22h16"></path>
+                                <path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"></path>
+                                <path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"></path>
+                                <path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"></path>
+                            </svg>
+                            Top 10 reyting
+                        </a>
+                    </li>
+                </ul>
+            </div>
+            <div class="nav-section">
+                <h3 class="section-title">Ta'lim</h3>
+                <ul class="nav-list">
+                    <li class="nav-item">
+                        <a href="#courses" class="nav-link" onclick="loadSection('courses', this)">
+                            <svg class="nav-icon" viewBox="0 0 24 24">
+                                <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"></path>
+                                <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"></path>
+                            </svg>
+                            Kurslar
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="#certificates" class="nav-link" onclick="loadSection('certificates', this)">
+                            <svg class="nav-icon" viewBox="0 0 24 24">
+                                <circle cx="12" cy="8" r="7"></circle>
+                                <polyline points="8.21,13.89 7,23 12,20 17,23 15.79,13.88"></polyline>
+                            </svg>
+                            Sertifikatlar
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="#telegram" class="nav-link" onclick="loadSection('telegram', this)">
+                            <svg class="nav-icon" viewBox="0 0 24 24">
+                                <path d="m22 2-7 20-4-9-9-4Z"></path>
+                                <path d="M22 2 11 13"></path>
+                            </svg>
+                            Telegram kanal
+                        </a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+        <div class="logout-section">
+            <button class="logout-btn" onclick="logout()">
+                <svg class="nav-icon" viewBox="0 0 24 24">
+                    <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+                    <polyline points="16,17 21,12 16,7"></polyline>
+                    <line x1="21" y1="12" x2="9" y2="12"></line>
+                </svg>
+                Chiqish
+            </button>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="main-content">
+        <div class="content-container" id="content-container">
+            <!-- Content will be loaded dynamically here -->
+        </div>
+    </div>
+
+    <script>
+        // Firebase Configuration
+        const firebaseConfig = {
+            apiKey: "YOUR_API_KEY",
+            authDomain: "YOUR_AUTH_DOMAIN",
+            projectId: "YOUR_PROJECT_ID",
+            storageBucket: "YOUR_STORAGE_BUCKET",
+            messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
+            appId: "YOUR_APP_ID"
+        };
+
+        // Initialize Firebase
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const db = firebase.firestore();
+
+        // Check Authentication State
+        auth.onAuthStateChanged(user => {
+            if (user) {
+                document.getElementById('user-name').textContent = user.displayName || 'Nozim Zokirov';
+                document.getElementById('user-avatar').textContent = user.displayName ? user.displayName.slice(0, 2).toUpperCase() : 'NZ';
+                loadSection('dashboard'); // Load dashboard by default
+                fetchSubjects();
+            } else {
+                window.location.href = 'login.html';
+            }
+        });
+
+        // Fetch Subjects from Firestore
+        function fetchSubjects() {
+            const subjectsList = document.getElementById('subjects-list');
+            subjectsList.innerHTML = '<li class="loading">Yuklanmoqda...</li>';
+
+            db.collection('subjects').get()
+                .then(querySnapshot => {
+                    subjectsList.innerHTML = '';
+                    if (querySnapshot.empty) {
+                        subjectsList.innerHTML = '<li class="error">Fanlar topilmadi</li>';
+                        return;
+                    }
+                    querySnapshot.forEach(doc => {
+                        const subject = doc.data();
+                        const li = document.createElement('li');
+                        li.className = 'nav-item';
+                        li.innerHTML = `
+                            <a href="#subjects/${doc.id}" class="nav-link" onclick="loadSection('subjects', this, '${doc.id}')">
+                                <svg class="nav-icon" viewBox="0 0 24 24">
+                                    <polygon points="12,2 2,7 12,12 22,7 12,2"></polygon>
+                                    <polyline points="2,17 12,22 22,17"></polyline>
+                                    <polyline points="2,12 12,17 22,12"></polyline>
+                                </svg>
+                                ${subject.name}
+                            </a>
+                        `;
+                        subjectsList.appendChild(li);
+                    });
+                })
+                .catch(error => {
+                    subjectsList.innerHTML = `<li class="error">Xatolik: ${error.message}</li>`;
+                    console.error('Error fetching subjects:', error);
+                });
+        }
+
+        // Load Section Content
+        function loadSection(section, element, subId = '') {
+            const contentContainer = document.getElementById('content-container');
+            const currentPage = document.getElementById('current-page');
+            document.querySelectorAll('.nav-link').forEach(link => link.classList.remove('active'));
+            if (element) element.classList.add('active');
+
+            contentContainer.innerHTML = '<div class="loading">Yuklanmoqda...</div>';
+
+            switch (section) {
+                case 'dashboard':
+                    currentPage.textContent = 'Dashboard';
+                    contentContainer.innerHTML = `
+                        <h1 class="page-title">Dashboard</h1>
+                        <p class="page-subtitle">Sizning ta'lim jarayoningiz va natijalaringiz haqida umumiy ma'lumot</p>
+                        <div class="cards-grid">
+                            <div class="card">
+                                <div class="card-header">
+                                    <div class="card-icon">
+                                        <svg class="icon" viewBox="0 0 24 24">
+                                            <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"></path>
+                                            <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"></path>
+                                        </svg>
+                                    </div>
+                                    <h3 class="card-title">Yangi kurslar</h3>
+                                </div>
+                                <p class="card-text">Siz uchun yangi kurslar qo'shildi. Ularni ko'rib chiqing va o'quv jarayonini boshlang!</p>
+                            </div>
+                            <div class="card">
+                                <div class="card-header">
+                                    <div class="card-icon">
+                                        <svg class="icon" viewBox="0 0 24 24">
+                                            <line x1="18" y1="20" x2="18" y2="10"></line>
+                                            <line x1="12" y1="20" x2="12" y2="4"></line>
+                                            <line x1="6" y1="20" x2="6" y2="14"></line>
+                                        </svg>
+                                    </div>
+                                    <h3 class="card-title">Statistika</h3>
+                                </div>
+                                <p class="card-text">O'quv natijalaringizni tahlil qiling va yutuqlaringizni kuzating.</p>
+                            </div>
+                            <div class="card">
+                                <div class="card-header">
+                                    <div class="card-icon">
+                                        <svg class="icon" viewBox="0 0 24 24">
+                                            <circle cx="12" cy="8" r="7"></circle>
+                                            <polyline points="8.21,13.89 7,23 12,20 17,23 15.79,13.88"></polyline>
+                                        </svg>
+                                    </div>
+                                    <h3 class="card-title">Sertifikatlar</h3>
+                                </div>
+                                <p class="card-text">Tugatilgan kurslar uchun sertifikatlarni yuklab oling.</p>
+                            </div>
+                        </div>
+                    `;
+                    break;
+                case 'subjects':
+                    currentPage.textContent = subId ? 'Fan: ' + subId : 'Fanlar';
+                    db.collection('subjects').get()
+                        .then(querySnapshot => {
+                            contentContainer.innerHTML = `
+                                <h1 class="page-title">Fanlar</h1>
+                                <p class="page-subtitle">Sizning o'quv fanlaringiz ro'yxati</p>
+                                <div class="cards-grid" id="subjects-content">
+                                    ${querySnapshot.empty ? '<div class="error">Fanlar topilmadi</div>' : ''}
+                                </div>
+                            `;
+                            const subjectsContent = document.getElementById('subjects-content');
+                            querySnapshot.forEach(doc => {
+                                const subject = doc.data();
+                                if (!subId || doc.id === subId) {
+                                    const card = document.createElement('div');
+                                    card.className = 'card';
+                                    card.innerHTML = `
+                                        <div class="card-header">
+                                            <div class="card-icon">
+                                                <svg class="icon" viewBox="0 0 24 24">
+                                                    <polygon points="12,2 2,7 12,12 22,7 12,2"></polygon>
+                                                    <polyline points="2,17 12,22 22,17"></polyline>
+                                                    <polyline points="2,12 12,17 22,12"></polyline>
+                                                </svg>
+                                            </div>
+                                            <h3 class="card-title">${subject.name}</h3>
+                                        </div>
+                                        <p class="card-text">${subject.description || 'Bu fan bo‘yicha ma’lumotlar.'}</p>
+                                    `;
+                                    subjectsContent.appendChild(card);
+                                }
+                            });
+                        })
+                        .catch(error => {
+                            contentContainer.innerHTML = `<div class="error">Xatolik: ${error.message}</div>`;
+                        });
+                    break;
+                case 'tests':
+                    currentPage.textContent = 'Testlar';
+                    db.collection('tests').where('userId', '==', auth.currentUser.uid).get()
+                        .then(querySnapshot => {
+                            contentContainer.innerHTML = `
+                                <h1 class="page-title">Testlar</h1>
+                                <p class="page-subtitle">Sizning testlaringiz ro'yxati</p>
+                                <div class="cards-grid" id="tests-content">
+                                    ${querySnapshot.empty ? '<div class="error">Testlar topilmadi</div>' : ''}
+                                </div>
+                            `;
+                            const testsContent = document.getElementById('tests-content');
+                            querySnapshot.forEach(doc => {
+                                const test = doc.data();
+                                const card = document.createElement('div');
+                                card.className = 'card';
+                                card.innerHTML = `
+                                    <div class="card-header">
+                                        <div class="card-icon">
+                                            <svg class="icon" viewBox="0 0 24 24">
+                                                <path d="M9 11H5a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h4a2 2 0 0 0 2-2v-7a2 2 0 0 0-2-2zM21 11h-4a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h4a2 2 0 0 0 2-2v-7a2 2 0 0 0-2-2z"></path>
+                                                <path d="m7 21-4-4h5.5L12 21"></path>
+                                                <path d="m17 21 4-4h-5.5L12 21"></path>
+                                            </svg>
+                                        </div>
+                                        <h3 class="card-title">${test.title}</h3>
+                                    </div>
+                                    <p class="card-text">Natija: ${test.score}%</p>
+                                `;
+                                testsContent.appendChild(card);
+                            });
+                        })
+                        .catch(error => {
+                            contentContainer.innerHTML = `<div class="error">Xatolik: ${error.message}</div>`;
+                        });
+                    break;
+                case 'payment':
+                    currentPage.textContent = "Hisobni to'ldirish";
+                    contentContainer.innerHTML = `
+                        <h1 class="page-title">Hisobni to'ldirish</h1>
+                        <p class="page-subtitle">Hisobingizni to'ldiring va yangi imkoniyatlardan foydalaning</p>
+                        <div class="cards-grid">
+                            <div class="card">
+                                <div class="card-header">
+                                    <div class="card-icon">
+                                        <svg class="icon" viewBox="0 0 24 24">
+                                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                                            <polyline points="14,2 14,8 20,8"></polyline>
+                                            <line x1="16" y1="13" x2="8" y2="13"></line>
+                                            <line x1="16" y1="17" x2="8" y2="17"></line>
+                                            <polyline points="10,9 9,9 8,9"></polyline>
+                                        </svg>
+                                    </div>
+                                    <h3 class="card-title">To'lov usullari</h3>
+                                </div>
+                                <p class="card-text">Bank kartasi, mobil to'lovlar yoki boshqa usullar orqali hisobingizni to'ldiring.</p>
+                            </div>
+                        </div>
+                    `;
+                    break;
+                case 'results':
+                    currentPage.textContent = 'Natijalarim';
+                    db.collection('results').where('userId', '==', auth.currentUser.uid).get()
+                        .then(querySnapshot => {
+                            contentContainer.innerHTML = `
+                                <h1 class="page-title">Natijalarim</h1>
+                                <p class="page-subtitle">Sizning test natijalaringiz</p>
+                                <div class="cards-grid" id="results-content">
+                                    ${querySnapshot.empty ? '<div class="error">Natijalar topilmadi</div>' : ''}
+                                </div>
+                            `;
+                            const resultsContent = document.getElementById('results-content');
+                            querySnapshot.forEach(doc => {
+                                const result = doc.data();
+                                const card = document.createElement('div');
+                                card.className = 'card';
+                                card.innerHTML = `
+                                    <div class="card-header">
+                                        <div class="card-icon">
+                                            <svg class="icon" viewBox="0 0 24 24">
+                                                <line x1="18" y1="20" x2="18" y2="10"></line>
+                                                <line x1="12" y1="20" x2="12" y2="4"></line>
+                                                <line x1="6" y1="20" x2="6" y2="14"></line>
+                                            </svg>
+                                        </div>
+                                        <h3 class="card-title">${result.subject}</h3>
+                                    </div>
+                                    <p class="card-text">Natija: ${result.score}%, Sana: ${new Date(result.date.toDate()).toLocaleDateString()}</p>
+                                `;
+                                resultsContent.appendChild(card);
+                            });
+                        })
+                        .catch(error => {
+                            contentContainer.innerHTML = `<div class="error">Xatolik: ${error.message}</div>`;
+                        });
+                    break;
+                case 'rankings':
+                    currentPage.textContent = 'Top 10 reyting';
+                    db.collection('rankings').orderBy('score', 'desc').limit(10).get()
+                        .then(querySnapshot => {
+                            contentContainer.innerHTML = `
+                                <h1 class="page-title">Top 10 reyting</h1>
+                                <p class="page-subtitle">Eng yaxshi natijalarga erishganlar</p>
+                                <div class="cards-grid" id="rankings-content">
+                                    ${querySnapshot.empty ? '<div class="error">Reyting topilmadi</div>' : ''}
+                                </div>
+                            `;
+                            const rankingsContent = document.getElementById('rankings-content');
+                            querySnapshot.forEach(doc => {
+                                const rank = doc.data();
+                                const card = document.createElement('div');
+                                card.className = 'card';
+                                card.innerHTML = `
+                                    <div class="card-header">
+                                        <div class="card-icon">
+                                            <svg class="icon" viewBox="0 0 24 24">
+                                                <path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"></path>
+                                                <path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"></path>
+                                                <path d="M4 22h16"></path>
+                                                <path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"></path>
+                                                <path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"></path>
+                                                <path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"></path>
+                                            </svg>
+                                        </div>
+                                        <h3 class="card-title">Reyting #${rank.rank}</h3>
+                                    </div>
+                                    <p class="card-text">Foydalanuvchi: ${rank.userId}, Ball: ${rank.score}</p>
+                                `;
+                                rankingsContent.appendChild(card);
+                            });
+                        })
+                        .catch(error => {
+                            contentContainer.innerHTML = `<div class="error">Xatolik: ${error.message}</div>`;
+                        });
+                    break;
+                case 'courses':
+                    currentPage.textContent = 'Kurslar';
+                    db.collection('courses').where('userId', '==', auth.currentUser.uid).get()
+                        .then(querySnapshot => {
+                            contentContainer.innerHTML = `
+                                <h1 class="page-title">Kurslar</h1>
+                                <p class="page-subtitle">Sizning kurslaringiz ro'yxati</p>
+                                <div class="cards-grid" id="courses-content">
+                                    ${querySnapshot.empty ? '<div class="error">Kurslar topilmadi</div>' : ''}
+                                </div>
+                            `;
+                            const coursesContent = document.getElementById('courses-content');
+                            querySnapshot.forEach(doc => {
+                                const course = doc.data();
+                                const card = document.createElement('div');
+                                card.className = 'card';
+                                card.innerHTML = `
+                                    <div class="card-header">
+                                        <div class="card-icon">
+                                            <svg class="icon" viewBox="0 0 24 24">
+                                                <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"></path>
+                                                <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"></path>
+                                            </svg>
+                                        </div>
+                                        <h3 class="card-title">${course.title}</h3>
+                                    </div>
+                                    <p class="card-text">Jarayon: ${course.progress}%</p>
+                                `;
+                                coursesContent.appendChild(card);
+                            });
+                        })
+                        .catch(error => {
+                            contentContainer.innerHTML = `<div class="error">Xatolik: ${error.message}</div>`;
+                        });
+                    break;
+                case 'certificates':
+                    currentPage.textContent = 'Sertifikatlar';
+                    db.collection('certificates').where('userId', '==', auth.currentUser.uid).get()
+                        .then(querySnapshot => {
+                            contentContainer.innerHTML = `
+                                <h1 class="page-title">Sertifikatlar</h1>
+                                <p class="page-subtitle">Sizning sertifikatlaringiz ro'yxati</p>
+                                <div class="cards-grid" id="certificates-content">
+                                    ${querySnapshot.empty ? '<div class="error">Sertifikatlar topilmadi</div>' : ''}
+                                </div>
+                            `;
+                            const certificatesContent = document.getElementById('certificates-content');
+                            querySnapshot.forEach(doc => {
+                                const cert = doc.data();
+                                const card = document.createElement('div');
+                                card.className = 'card';
+                                card.innerHTML = `
+                                    <div class="card-header">
+                                        <div class="card-icon">
+                                            <svg class="icon" viewBox="0 0 24 24">
+                                                <circle cx="12" cy="8" r="7"></circle>
+                                                <polyline points="8.21,13.89 7,23 12,20 17,23 15.79,13.88"></polyline>
+                                            </svg>
+                                        </div>
+                                        <h3 class="card-title">${cert.title}</h3>
+                                    </div>
+                                    <p class="card-text">Sana: ${new Date(cert.date.toDate()).toLocaleDateString()}</p>
+                                `;
+                                certificatesContent.appendChild(card);
+                            });
+                        })
+                        .catch(error => {
+                            contentContainer.innerHTML = `<div class="error">Xatolik: ${error.message}</div>`;
+                        });
+                    break;
+                case 'telegram':
+                    currentPage.textContent = 'Telegram kanal';
+                    contentContainer.innerHTML = `
+                        <h1 class="page-title">Telegram kanal</h1>
+                        <p class="page-subtitle">Bizning Telegram kanalimizga qo'shiling</p>
+                        <div class="cards-grid">
+                            <div class="card">
+                                <div class="card-header">
+                                    <div class="card-icon">
+                                        <svg class="icon" viewBox="0 0 24 24">
+                                            <path d="m22 2-7 20-4-9-9-4Z"></path>
+                                            <path d="M22 2 11 13"></path>
+                                        </svg>
+                                    </div>
+                                    <h3 class="card-title">Telegram kanali</h3>
+                                </div>
+                                <p class="card-text">Yangiliklar va yangi kurslardan xabardor bo'lish uchun Telegram kanalimizga qo'shiling.</p>
+                                <a href="https://t.me/yourchannel" target="_blank" class="nav-link">Kanalga o'tish</a>
+                            </div>
+                        </div>
+                    `;
+                    break;
+                default:
+                    contentContainer.innerHTML = '<div class="error">Bo‘lim topilmadi</div>';
+            }
+        }
+
+        // Sidebar Toggle
+        function toggleSidebar() {
+            const sidebar = document.getElementById('sidebar');
+            const overlay = document.querySelector('.overlay');
+            const menuIcon = document.getElementById('menu-icon');
+            const closeIcon = document.getElementById('close-icon');
+            const header = document.getElementById('header');
+
+            sidebar.classList.toggle('active');
+            overlay.classList.toggle('active');
+            menuIcon.style.display = sidebar.classList.contains('active') ? 'none' : 'block';
+            closeIcon.style.display = sidebar.classList.contains('active') ? 'block' : 'none';
+
+            // Mobil ko'rinishda headerni yashirish/ko'rsatish
+            if (window.innerWidth <= 767) {
+                if (sidebar.classList.contains('active')) {
+                    header.classList.add('hidden');
+                } else {
+                    header.classList.remove('hidden');
+                }
+            }
+        }
+
+        function closeSidebar() {
+            const sidebar = document.getElementById('sidebar');
+            const overlay = document.querySelector('.overlay');
+            const menuIcon = document.getElementById('menu-icon');
+            const closeIcon = document.getElementById('close-icon');
+            const header = document.getElementById('header');
+
+            sidebar.classList.remove('active');
+            overlay.classList.remove('active');
+            menuIcon.style.display = 'block';
+            closeIcon.style.display = 'none';
+
+            // Mobil ko'rinishda headerni qayta ko'rsatish
+            if (window.innerWidth <= 767) {
+                header.classList.remove('hidden');
+            }
+        }
+
+        // User Menu Toggle
+        function toggleUserMenu() {
+            console.log('User menu toggled');
+        }
+
+        // Logout
+        function logout() {
+            auth.signOut().then(() => {
+                window.location.href = 'login.html';
+            }).catch(error => {
+                console.error('Logout error:', error);
+            });
+        }
+
+        // Window resize event to handle header visibility
+        window.addEventListener('resize', () => {
+            const header = document.getElementById('header');
+            const sidebar = document.getElementById('sidebar');
+            if (window.innerWidth > 767) {
+                header.classList.remove('hidden');
+            } else if (!sidebar.classList.contains('active')) {
+                header.classList.remove('hidden');
+            } else {
+                header.classList.add('hidden');
+            }
+        });
+    </script>
+</body>
+</html>
